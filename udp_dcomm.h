@@ -1,7 +1,3 @@
-/**
- * dcomm.h
- */
-
 #ifndef _DCOMM_H_
 #define _DCOMM_H_
 
@@ -36,7 +32,12 @@ struct QTYPE {
 };
 
 struct MESGB {
-
+  unsigned int soh;
+  unsigned int stx;
+  unsigned int etx;
+  Byte checksum;
+  Byte msgno;
+  Byte* data;
 };
 
 
