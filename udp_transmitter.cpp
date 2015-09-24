@@ -11,13 +11,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h> // inet_pton
+#include <pthread.h>
 
 /* file descriptor for connected socket */
 int socketfd;
+int socketclosed = 0;
 
 /* address structure */
 struct sockaddr_in transmitterAddr; 
 struct sockaddr_in receiverAddr;
+
+/* signal receiver XON or XOFF */
+Byte sent_xonxoff = XON; // default set to XON
 
 /*
 	Connect to the service running on host:port.
@@ -53,6 +58,21 @@ int binding(char *host, int port) {
  	return 1;
 }
 
+void* receiveSignalXONXOFF(void* threadid) {
+	Byte buf;
+	socklen_t addrlen = sizeof(receiverAddr);
+	while (!socketclosed) {
+		recvfrom(socketfd, &buf, 1, 0, (struct sockaddr *)&receiverAddr, &addrlen);
+		if (buf == XOFF)
+			sent_xonxoff = XOFF;
+		else
+			sent_xonxoff = XON;
+	}
+	printf("%d\n", socketclosed);
+
+	pthread_exit(NULL);
+}
+
 int main(int argc, char *argv[]) {
 
 	if (argc > 3) {
@@ -60,15 +80,34 @@ int main(int argc, char *argv[]) {
 		if (!bind_success)
 			return 0;
 
+		char *filename = argv[3];
+
+		/* Create thread for XON XOFF signal from receiver */
+		pthread_t thread;
+		pthread_create(&thread, NULL, receiveSignalXONXOFF, NULL);
+
 		char *msg = "Hallo";
-		if (!sendto(socketfd, msg, strlen(msg), 0, (struct sockaddr *)&receiverAddr, sizeof(receiverAddr)))
-			perror("sendto failed");
+		socklen_t addrlen = sizeof(receiverAddr);
+		for (int i = 0; i < strlen(msg); i++) {
+			if (!sendto(socketfd, &msg[i], sizeof(char), 0, (struct sockaddr *)&receiverAddr, addrlen))
+				perror("sendto failed");
+			printf("Mengirim byte ke-%d: %c\n", i + 1, msg[i]);
+
+			if (sent_xonxoff == XOFF) {
+				printf("XOFF diterima.\n");
+				/* waiting XON */
+				while(sent_xonxoff != XON) {
+					printf("Menunggu XON...\n");
+				}
+			} 
+		}
 
 		close(socketfd); // destroy socket
+		socketclosed = 1;
 	}
 	else {
 		printf("Usage : transmitter [receiver IP] [receiver port] [message.txt]\n");
 	}
 
-	return 0;
+	pthread_exit(NULL);
 }
