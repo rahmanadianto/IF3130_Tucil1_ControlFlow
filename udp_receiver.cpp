@@ -23,46 +23,73 @@ using namespace std;
 
 #define DELAY 500
 #define SIZE 8
+#define UPPER_LIMIT 4
+#define LOWER_LIMIT 1
 
 Byte buffer[SIZE];
-QTYPE receiver_queue = {0, 0, 0, SIZE, buffer};
+QTYPE receiver_queue = QTYPE(0, 0, 0, SIZE, buffer);
 QTYPE *receiver_pointer = &receiver_queue;
 
 Byte sent_xonxoff = XON;
-bool sent_xon = false;
-bool sent_xoff = false;
+bool sent_xon = true;
 
 /* Socket */
 int sockfd;
 
+/* Binding socket */
+struct sockaddr_in myaddr;
+struct sockaddr_in remaddr;
+socklen_t addrlen;
+int recvlen;
+
 /* Function declaration */
 static Byte* receive_char(int sockfd, QTYPE* queue) {
-/**
- * Insert code here.
- * Read a character from socket and put it to the receiver buffer
- * If the number of characters in the receive buffer is above certain
- * leve, then send XOFF and set a flag (why?).
- * Return a pointer to the buffer where data is put.
- */
+  /**
+   * Insert code here.
+   * Read a character from socket and put it to the receiver buffer
+   * If the number of characters in the receive buffer is above certain
+   * level, then send XOFF and set a flag (why?).
+   * Return a pointer to the buffer where data is put.
+   */
+
+  // if XOFF then don't receive from socket
+  if(sent_xon == false) return NULL;
+  
+  recvlen = recvfrom(sockfd, buffer, 1, 0, (struct sockaddr*) &remaddr, &addrlen);
+  queue->push(buffer[0]);
+  if(queue->count > UPPER_LIMIT) {
+    sent_xon = false;
+    sent_xonxoff = XOFF;
+    sendto(sockfd, sent_xonxoff, strlen(sent_xonxoff), 0, (struct sockaddr*) &remaddr, addrlen);
+  }
+  return buffer;
 }
 
 static Byte* q_get(QTYPE* queue, Byte* data) {
-  Byte* current;
   // nothing in queue
-  if(!queue->count) return NULL;
+  if(queue->empty()) return NULL;
 
   /**
   * Insert code here.
   * Retrieve data from buffer, save it to "current" and "data"
-  * If the number of characters in the receive buffer is below certain leve,
+  * If the number of characters in the receive buffer is below certain level,
   * then send XON.
   * Increment front index and check for wraparound.
   */
+
+  data[0] = queue->front();
+  queue->pop();
+  if(queue->count < LOWER_LIMIT && sent_xon == false) {
+    sent_xon = true;
+    sent_xonxoff = XON;
+    sendto(sockfd, sent_xonxoff, strlen(sent_xonxoff), 0, (struct sockaddr*) &remaddr, addrlen);
+  }
+  return data;
 }
 
 /* paddr: print the IP address in a standard decimal dotted format */
 void paddr(unsigned char *a) {
-  printf("%d.%d.%d.%d\n", a[0], a[1], a[2], a[3]);
+  printf("%d.%d.%d.%d", a[0], a[1], a[2], a[3]);
 }
 
 int main(int argc, char *argv[]) {
@@ -73,28 +100,31 @@ int main(int argc, char *argv[]) {
   
   // creating UDP socket
   if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    perror("cannot create socket\n");
+    perror("Tidak dapat membuat socket\n");
     return 0;
   }
-
-  struct sockaddr_in myaddr;
-  struct sockaddr_in remaddr;
-  socklen_t addrlen = sizeof(remaddr);
-  int recvlen;
+  printf("Socket created with descriptor %d\n", sockfd);
+  
 
   // initiating for binding
+  addrlen = sizeof(remaddr);
   int port = argc > 1? atoi(argv[1]) : DEFAULT_PORT;
   memset((char*) &myaddr, 0, sizeof(myaddr));
   myaddr.sin_family = AF_INET; 
   inet_pton(AF_INET, "127.0.0.1", &myaddr.sin_addr.s_addr);
   myaddr.sin_port = htons(port);
 
+  printf("Binding pada ");
+  paddr((unsigned char*) &myaddr.sin_addr.s_addr);
+  printf(":%d ...\n", port);
+
 
   // binding socket to valid IP Address and port
   if(bind(sockfd, (struct sockaddr*) &myaddr, sizeof(myaddr)) < 0) {
-    perror("bind failed");
+    perror("Binding gagal.");
     return 0;
   }
+  printf("Binding berhasil\n");
 
   /*
   char* host = (char*) "google.com";
@@ -128,5 +158,6 @@ int main(int argc, char *argv[]) {
     // call q_get
     // can introduce some delay here
   }
+  close(fd);
   return 0;
 }
