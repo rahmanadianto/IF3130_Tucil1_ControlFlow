@@ -68,7 +68,6 @@ void* receiveSignalXONXOFF(void* threadid) {
 		else
 			sent_xonxoff = XON;
 	}
-	printf("%d\n", socketclosed);
 
 	pthread_exit(NULL);
 }
