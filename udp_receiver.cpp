@@ -1,4 +1,9 @@
+/*
+ * File : udp_receiver.h
+ */
+
 #include "udp_dcomm.h"
+#include <sys/socket.h>
 
 #define DELAY 500
 #define SIZE 8
@@ -14,7 +19,7 @@ bool sent_xoff = false;
 /* Socket */
 int sockfd;
 
-/* Functino declaration */
+/* Function declaration */
 static Byte* receive_char(int sockfd, QTYPE* queue) {
 /**
  * Insert code here.

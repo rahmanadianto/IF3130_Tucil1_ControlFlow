@@ -1,3 +1,7 @@
+/*
+ * File : udp_dcomm.h
+ */
+
 #ifndef _DCOMM_H_
 #define _DCOMM_H_
 
@@ -39,6 +43,5 @@ struct MESGB {
   Byte msgno;
   Byte* data;
 };
-
 
 #endif
