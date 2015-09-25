@@ -1,6 +1,6 @@
 /**
  * Written by Luqman A. Siswanto
- * This code is easier to understand than you 
+ * Understanding this code is easier than understanding you.
  * File : udp_receiver.h
  */
 
@@ -21,17 +21,19 @@
 
 using namespace std;
 
-#define DELAY 500
+// delay in microseconds
+#define DELAY 500000
 #define SIZE 8
 #define UPPER_LIMIT 4
 #define LOWER_LIMIT 1
 
 Byte buffer[SIZE];
+Byte bufget[SIZE];
 QTYPE receiver_queue = QTYPE(0, 0, 0, SIZE, buffer);
 QTYPE *receiver_pointer = &receiver_queue;
 
-Byte sent_xonxoff = XON;
-bool sent_xon = true;
+Byte sent_xonxoff[0];
+bool sent_xon;
 
 /* Socket */
 int sockfd;
@@ -41,6 +43,13 @@ struct sockaddr_in myaddr;
 struct sockaddr_in remaddr;
 socklen_t addrlen;
 int recvlen;
+int cnt_receiver, cnt_consumer;
+int port;
+
+/* paddr: print the IP address in a standard decimal dotted format */
+void paddr(unsigned char *a) {
+  printf("%d.%d.%d.%d", a[0], a[1], a[2], a[3]);
+}
 
 struct arg_struct {
   // nothing, just formality :)
@@ -59,12 +68,18 @@ static Byte* receive_char(int sockfd, QTYPE* queue) {
   // if XOFF then don't receive from socket
   if(sent_xon == false) return NULL;
   
+  printf("Menunggu seseorang di ");
+  paddr((unsigned char*) &myaddr.sin_addr.s_addr);
+  printf(":%d ...\n", port);
+  
   recvlen = recvfrom(sockfd, buffer, 1, 0, (struct sockaddr*) &remaddr, &addrlen);
+  printf("Menerima byte ke-%d\n", ++cnt_receiver);
   queue->push(buffer[0]);
   if(queue->count > UPPER_LIMIT) {
     sent_xon = false;
-    sent_xonxoff = XOFF;
-    sendto(sockfd, sent_xonxoff, strlen(sent_xonxoff), 0, (struct sockaddr*) &remaddr, addrlen);
+    sent_xonxoff[0] = XOFF;
+    sendto(sockfd, sent_xonxoff, 1, 0, (struct sockaddr*) &remaddr, (socklen_t) addrlen);
+    printf("Buffer > minimum upperlimit. Mengirim XOFF\n");
   }
   return buffer;
 }
@@ -83,35 +98,37 @@ static Byte* q_get(QTYPE* queue, Byte* data) {
 
   data[0] = queue->front();
   queue->pop();
+  printf("Mengkonsumsi byte ke-%d: '%c'\n", ++cnt_consumer, data[0]);
   if(queue->count < LOWER_LIMIT && sent_xon == false) {
     sent_xon = true;
-    sent_xonxoff = XON;
-    sendto(sockfd, sent_xonxoff, strlen(sent_xonxoff), 0, (struct sockaddr*) &remaddr, addrlen);
+    sent_xonxoff[0] = XON;
+    sendto(sockfd, sent_xonxoff, 1, 0, (struct sockaddr*) &remaddr, (socklen_t) addrlen);
+    printf("Buffer < maximum lowerlimit. Mengirim XON.\n");
   }
   return data;
 }
 
-/* paddr: print the IP address in a standard decimal dotted format */
-void paddr(unsigned char *a) {
-  printf("%d.%d.%d.%d", a[0], a[1], a[2], a[3]);
-}
-
-void run_receive_char(void* arguments) {
+void *run_receive_char(void* arguments) {
   // IF PARENT PROCESS
   while(1) {
-    c = *(receive_char(sockfd, receiver_pointer));
+    Byte c = *(receive_char(sockfd, receiver_pointer));
+
     if(c == Endfile) {
       exit(0);
     }
   }
+  pthread_exit(NULL);
 }
 
-void run_q_get(void* arguments) {
+void *run_q_get(void* arguments) {
   // ELSE IF CHILD PROCESS
   while(1) {
+    q_get(receiver_pointer, bufget);
+    usleep(DELAY);
     // call q_get
     // can introduce some delay here
   }
+  pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -130,13 +147,13 @@ int main(int argc, char *argv[]) {
 
   // initiating for binding
   addrlen = sizeof(remaddr);
-  int port = argc > 1? atoi(argv[1]) : DEFAULT_PORT;
+  port = argc > 1? atoi(argv[1]) : DEFAULT_PORT;
   memset((char*) &myaddr, 0, sizeof(myaddr));
   myaddr.sin_family = AF_INET; 
   inet_pton(AF_INET, "127.0.0.1", &myaddr.sin_addr.s_addr);
   myaddr.sin_port = htons(port);
 
-  printf("Binding pada ");
+  printf("Binding pada alamat ");
   paddr((unsigned char*) &myaddr.sin_addr.s_addr);
   printf(":%d ...\n", port);
 
@@ -146,7 +163,7 @@ int main(int argc, char *argv[]) {
     perror("Binding gagal.");
     return 0;
   }
-  printf("Binding berhasil\n");
+  printf("Binding berhasil\n\n");
 
 /*
   char* host = (char*) "google.com";
@@ -170,20 +187,22 @@ int main(int argc, char *argv[]) {
   pthread_t receiver_thread;
   pthread_t consumer_thread;
   struct arg_struct args;
+  sent_xon = true;
+  sent_xonxoff[0] = XON;
 
-  int ret = pthread_create(&receiver_thread, NULL, &run_receive_char, (void*) args);
+  int ret = pthread_create(&receiver_thread, NULL, &run_receive_char, (void*) &args);
   if(ret != 0) {
     puts("Threading receiver gagal");
     exit(0);
   }
 
-  int ret = pthread_create(&consumer_thread, NULL, &run_q_get, (void*) args);
-  if(ret != 0) {
+  int rec = pthread_create(&consumer_thread, NULL, &run_q_get, (void*) &args);
+  if(rec != 0) {
     puts("Threading consumber gagal");
     exit(0);
   }
 
   pthread_exit(NULL);
-  close(fd);
+  close(sockfd);
   return 0;
 }

@@ -28,16 +28,18 @@
 
 #define DEFAULT_PORT 21234
 
+#include <bits/stdc++.h>
+
 typedef unsigned char Byte;
 
 /**
- * bila front == rear maka queue kosong
+ * bila fron == rear maka queue kosong
  * rear adalah index yg selalu kosong
  */
 struct QTYPE {
   QTYPE(unsigned int c, unsigned int f, unsigned int r, unsigned int m, Byte* d) {
     count = c;
-    front = f;
+    fron = f;
     rear = r;
     maxsize = m;
     data = d;
@@ -49,7 +51,7 @@ struct QTYPE {
     assert(count < maxsize);
   }
   void pop() {
-    front = (front + 1) % maxsize;
+    fron = (fron + 1) % maxsize;
     count--;
     assert(count >= 0);
   }
@@ -60,10 +62,10 @@ struct QTYPE {
     return count == 0;
   }
   Byte front() {
-    return data[front];
+    return data[fron];
   }
   unsigned int count;
-  unsigned int front;
+  unsigned int fron;
   unsigned int rear;
   unsigned int maxsize;
   Byte* data;
