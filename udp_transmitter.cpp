@@ -11,13 +11,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h> // inet_pton
+#include <pthread.h>
+
+#include <fstream>
 
 /* file descriptor for connected socket */
 int socketfd;
+int socketclosed = 0;
 
 /* address structure */
 struct sockaddr_in transmitterAddr; 
 struct sockaddr_in receiverAddr;
+
+/* signal receiver XON or XOFF */
+Byte sent_xonxoff = XON; // default set to XON
 
 /*
 	Connect to the service running on host:port.
@@ -53,6 +60,20 @@ int binding(char *host, int port) {
  	return 1;
 }
 
+void* receiveSignalXONXOFF(void* threadid) {
+	Byte buf;
+	socklen_t addrlen = sizeof(receiverAddr);
+	while (!socketclosed) {
+		recvfrom(socketfd, &buf, 1, 0, (struct sockaddr *)&receiverAddr, &addrlen);
+		if (buf == XOFF)
+			sent_xonxoff = XOFF;
+		else
+			sent_xonxoff = XON;
+	}
+
+	pthread_exit(NULL);
+}
+
 int main(int argc, char *argv[]) {
 
 	if (argc > 3) {
@@ -60,15 +81,41 @@ int main(int argc, char *argv[]) {
 		if (!bind_success)
 			return 0;
 
-		char *msg = "Hallo";
-		if (!sendto(socketfd, msg, strlen(msg), 0, (struct sockaddr *)&receiverAddr, sizeof(receiverAddr)))
-			perror("sendto failed");
+		char *filename = argv[3];
+
+		/* Create thread for XON XOFF signal from receiver */
+		pthread_t thread;
+		pthread_create(&thread, NULL, receiveSignalXONXOFF, NULL);
+
+		/* File message */
+		std::ifstream infile;
+		infile.open(filename);
+
+		char c;
+		int i = 0;
+		socklen_t addrlen = sizeof(receiverAddr);
+		while (infile.get(c)) {
+			if (!sendto(socketfd, &c, sizeof(char), 0, (struct sockaddr *)&receiverAddr, addrlen))
+				perror("sendto failed");
+			printf("Mengirim byte ke-%d: %c\n", i + 1, c);
+
+			if (sent_xonxoff == XOFF) {
+				printf("XOFF diterima.\n");
+				/* waiting XON */
+				while(sent_xonxoff != XON) {
+					printf("Menunggu XON...\n");
+				}
+			} 
+
+			i++;
+		}
 
 		close(socketfd); // destroy socket
+		socketclosed = 1;
 	}
 	else {
 		printf("Usage : transmitter [receiver IP] [receiver port] [message.txt]\n");
 	}
 
-	return 0;
+	pthread_exit(NULL);
 }
