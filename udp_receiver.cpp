@@ -42,6 +42,10 @@ struct sockaddr_in remaddr;
 socklen_t addrlen;
 int recvlen;
 
+struct arg_struct {
+  // nothing, just formality :)
+};
+
 /* Function declaration */
 static Byte* receive_char(int sockfd, QTYPE* queue) {
   /**
@@ -92,6 +96,24 @@ void paddr(unsigned char *a) {
   printf("%d.%d.%d.%d", a[0], a[1], a[2], a[3]);
 }
 
+void run_receive_char(void* arguments) {
+  // IF PARENT PROCESS
+  while(1) {
+    c = *(receive_char(sockfd, receiver_pointer));
+    if(c == Endfile) {
+      exit(0);
+    }
+  }
+}
+
+void run_q_get(void* arguments) {
+  // ELSE IF CHILD PROCESS
+  while(1) {
+    // call q_get
+    // can introduce some delay here
+  }
+}
+
 int main(int argc, char *argv[]) {
   Byte c;
   // insert code here to bind socket to the port number given in argv[1]
@@ -126,7 +148,7 @@ int main(int argc, char *argv[]) {
   }
   printf("Binding berhasil\n");
 
-  /*
+/*
   char* host = (char*) "google.com";
   struct hostent* hp;
 
@@ -134,7 +156,7 @@ int main(int argc, char *argv[]) {
   for(int i = 0; hp->h_addr_list[i] != 0; i++) {
     paddr((unsigned char*) hp->h_addr_list[i]);
   }
-  */
+  
   while(1) {
     printf("waiting on port %d\n", port);
     recvlen = recvfrom(sockfd, buffer, SIZE, 0, (struct sockaddr*) &remaddr, &addrlen);
@@ -144,20 +166,24 @@ int main(int argc, char *argv[]) {
       printf("received this message : %s", buffer);
     }
   }
+*/
+  pthread_t receiver_thread;
+  pthread_t consumer_thread;
+  struct arg_struct args;
 
-  /*** IF PARENT PROCESS ***/
-  while(1) {
-    c = *(receive_char(sockfd, receiver_pointer));
-    if(c == Endfile) {
-      exit(0);
-    }
+  int ret = pthread_create(&receiver_thread, NULL, &run_receive_char, (void*) args);
+  if(ret != 0) {
+    puts("Threading receiver gagal");
+    exit(0);
   }
 
-  /*** ELSE IF CHILD PROCESS *****/
-  while(1) {
-    // call q_get
-    // can introduce some delay here
+  int ret = pthread_create(&consumer_thread, NULL, &run_q_get, (void*) args);
+  if(ret != 0) {
+    puts("Threading consumber gagal");
+    exit(0);
   }
+
+  pthread_exit(NULL);
   close(fd);
   return 0;
 }
