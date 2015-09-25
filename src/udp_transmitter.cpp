@@ -17,7 +17,7 @@
 
 
 // DELAY untuk ngeprint MENUNGGU XON dalam microsecond
-#define DELAY 200000
+#define DELAY 400000
 
 /* file descriptor for connected socket */
 int socketfd;
@@ -107,16 +107,17 @@ int main(int argc, char *argv[]) {
 					i++;
 				}
 			}
+			usleep(DELAY/2);
 
 			if (sent_xonxoff == XOFF) {
 				printf("XOFF diterima.\n");
 				/* waiting XON */
 				int counter = 0;
 				while(sent_xonxoff == XOFF) {
-					if(counter == 0)
-						printf("Menunggu XON...\n");
-					counter = 1;
+					printf("Menunggu XON...\n");
+					usleep(DELAY);
 				}
+				printf("XON diterima.\n");
 			} 
 		}
 
