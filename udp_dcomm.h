@@ -26,9 +26,42 @@
 #define BYTESIZE 256  /* The maximum value of a byte */
 #define MAXLEN 1024   /* Maximum messages length */
 
+#define DEFAULT_PORT 21234
+
 typedef unsigned char Byte;
 
+/**
+ * bila front == rear maka queue kosong
+ * rear adalah index yg selalu kosong
+ */
 struct QTYPE {
+  QTYPE(unsigned int c, unsigned int f, unsigned int r, unsigned int m, Byte* d) {
+    count = c;
+    front = f;
+    rear = r;
+    maxsize = m;
+    data = d;
+  }
+  void push(Byte c) {
+    data[rear] = c;
+    rear = (rear + 1) % maxsize;
+    count++;
+    assert(count < maxsize);
+  }
+  void pop() {
+    front = (front + 1) % maxsize;
+    count--;
+    assert(count >= 0);
+  }
+  int size() {
+    return count;
+  }
+  bool empty() {
+    return count == 0;
+  }
+  Byte front() {
+    return data[front];
+  }
   unsigned int count;
   unsigned int front;
   unsigned int rear;

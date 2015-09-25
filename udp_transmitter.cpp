@@ -13,6 +13,8 @@
 #include <arpa/inet.h> // inet_pton
 #include <pthread.h>
 
+#include <fstream>
+
 /* file descriptor for connected socket */
 int socketfd;
 int socketclosed = 0;
@@ -85,12 +87,17 @@ int main(int argc, char *argv[]) {
 		pthread_t thread;
 		pthread_create(&thread, NULL, receiveSignalXONXOFF, NULL);
 
-		char *msg = "Hallo";
+		/* File message */
+		std::ifstream infile;
+		infile.open(filename);
+
+		char c;
+		int i = 0;
 		socklen_t addrlen = sizeof(receiverAddr);
-		for (int i = 0; i < strlen(msg); i++) {
-			if (!sendto(socketfd, &msg[i], sizeof(char), 0, (struct sockaddr *)&receiverAddr, addrlen))
+		while (infile.get(c)) {
+			if (!sendto(socketfd, &c, sizeof(char), 0, (struct sockaddr *)&receiverAddr, addrlen))
 				perror("sendto failed");
-			printf("Mengirim byte ke-%d: %c\n", i + 1, msg[i]);
+			printf("Mengirim byte ke-%d: %c\n", i + 1, c);
 
 			if (sent_xonxoff == XOFF) {
 				printf("XOFF diterima.\n");
@@ -99,6 +106,8 @@ int main(int argc, char *argv[]) {
 					printf("Menunggu XON...\n");
 				}
 			} 
+
+			i++;
 		}
 
 		close(socketfd); // destroy socket
