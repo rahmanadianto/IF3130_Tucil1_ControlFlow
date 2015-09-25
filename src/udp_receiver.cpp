@@ -111,10 +111,11 @@ static Byte* q_get(QTYPE* queue, Byte* data) {
 void *run_receive_char(void* arguments) {
   // IF PARENT PROCESS
   while(1) {
-    Byte c = *(receive_char(sockfd, receiver_pointer));
-
-    if(c == Endfile) {
-      exit(0);
+    Byte* loc = receive_char(sockfd, receiver_pointer); 
+    if(loc) {
+      if(*loc == Endfile) {
+        exit(0);
+      }
     }
   }
   pthread_exit(NULL);
@@ -180,7 +181,7 @@ int main(int argc, char *argv[]) {
 
   int rec = pthread_create(&consumer_thread, NULL, &run_q_get, (void*) &args);
   if(rec != 0) {
-    puts("Threading consumber gagal");
+    puts("Threading consumer gagal");
     exit(0);
   }
 
