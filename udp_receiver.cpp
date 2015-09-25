@@ -165,25 +165,7 @@ int main(int argc, char *argv[]) {
   }
   printf("Binding berhasil\n\n");
 
-/*
-  char* host = (char*) "google.com";
-  struct hostent* hp;
 
-  hp = gethostbyname(host);
-  for(int i = 0; hp->h_addr_list[i] != 0; i++) {
-    paddr((unsigned char*) hp->h_addr_list[i]);
-  }
-  
-  while(1) {
-    printf("waiting on port %d\n", port);
-    recvlen = recvfrom(sockfd, buffer, SIZE, 0, (struct sockaddr*) &remaddr, &addrlen);
-    printf("received %d bytes\n", recvlen);
-    if(recvlen > 0) {
-      buffer[recvlen] = 0;
-      printf("received this message : %s", buffer);
-    }
-  }
-*/
   pthread_t receiver_thread;
   pthread_t consumer_thread;
   struct arg_struct args;
